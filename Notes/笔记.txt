@@ -1,0 +1,648 @@
+1.增加成功，错误页面
+  在系统框架里有一份，在初始化创建应用目录的时候复制一份到应用目录，
+  方便用户自定义使用
+  要求可以自定义跳转链接，显示文字，已经跳转时间
+  这些方法写在所有用户自定义类都是继承的父类里面
+2.关于构造函数
+  当父类，子类同时都有构造方法的时候，子类的构造方法会覆盖父类的构造方法，可以通过
+  parent::__construct();解决；
+  还有另外一种解决方法，
+      父类使用构造方法：
+      public function __construct()
+      {
+          echo "<<<父类构造方法";
+          if(method_exists($this,'_init')){
+              $this->_init();
+          }
+      }
+      子类使用_init方法即可；
+      public function _init()
+      {
+         echo ">>>子类构造方法";
+      }
+3.日志类
+       需要在为用户创建应用程序目录的时候，创建用于存放日志的文件夹
+       用户可以自定义日志消息，日志的存放路径等信息
+       class Log
+       {
+           static public function write($msg,$level='ERROR',$type=3,$dest=null)
+           {
+               //如果没有开启日志功能，直接返回
+               if(!C("SAVE_LOG")){
+                   return;
+               }
+               if(is_null($dest)){
+                   $dest=LOG_PATH.'/'.date('Y_m_d').'.log';
+               }
+               if(is_dir(LOG_PATH)){
+                   error_log("[time]:".date("Y-m-d H:m:s")."{$level}:{$msg}\r\n",$type,$dest);
+               }
+           }
+       }
+4.debug 调试模式
+        在程序入口文件定义是否开启调试模式
+        define('DEBUG',true);
+        默认应该是关闭的状态，在框架核心文件设置
+        defined("DEBUG") || define("DEBUG",false);
+        关闭了提示模式以后，应该首先将错误模式设置为0；
+        error_reporting(0);
+        再次，再引入框架的必要文件的时候，
+        将所有需要引文的文件合并成一个文件，进行一次性引入，可以提高效率；
+        $file_arr=array(
+            CORE_PATH.'/Log.class.php',
+            FUNCTION_PATH.'/function.php',
+            CORE_PATH.'/Controller.class.php',
+            CORE_PATH.'/Application.class.php'
+        );
+            $str='';
+            foreach($file_arr as $value){
+                $str.=trim(substr(file_get_contents($value),5,-2));
+                require_once $value;
+            }
+                $str="<?php\r\n".$str;
+                file_put_contents(TEMP_PATH.'/~boot.php',$str);
+5.打印函数和跳转函数
+     function p($arr)
+     {
+         if(is_bool($arr) || is_null($arr)){
+             var_dump($arr);
+         }else{
+             echo "<pre style='padding: 10px; border: 1px solid #f5f5f5; border-radius: 4px; background: #CCCCCC;'>";
+             print_r($arr);
+             echo "</pre>";
+         }
+
+     }
+     跳转函数
+     function go($url,$time=0,$msg=''){
+
+         if(!headers_sent()){
+             $time==0 ? header("Location:".$url):header("refresh:{$time};url={$url}");
+             die($msg);
+         }else{
+             echo '<meta http-equiv="refresh" content="'.$time.'; url='.$url.'" />';
+             if($time ==0)  die($msg);
+         }
+     }
+6.halt函数
+      根据是否开启debug显示详尽的错误信息
+      并写入日志
+7.display()和 assign() 方法
+      在用于用户自定义类所必须继承的父类文件中实现Controller.class.php
+          protected function display($tpl=null)
+          {
+              if(is_null($tpl)){
+                  $path=APP_TPL_PATH.'/'.CONTROLLER.'/'.ACTION.'.html';
+              }else{
+                  $suffix=strrchr($tpl,'.');
+                  $tpl=empty($suffix)?$tpl.'.html':$tpl;
+                  $path=APP_TPL_PATH.'/'.CONTROLLER.'/'.$tpl;
+              }
+              if(! is_file($path)){
+                  halt($path."模板文件不存在");
+              }
+              extract($this->var);
+              include $path;
+          }
+
+    protected function assign($var,$value)
+    {
+       $this->var[$var]=$value;
+    }
+
+     打印所有自主已定义常量
+         public function print_const()
+         {
+             $const=get_defined_constants(true);
+             p($const['user']);
+         }
+8.IS_POST  和 IS_AJAX常量定义
+       在框架核心文件处定义常量
+       //是否为post提交
+       define('IS_POST',$_SERVER['REQUEST_METHOD']=='POST'?true:false);
+       //是否为ajax提交
+       if(isset($_SERVER['HTTP_X_REQUESTED_WITH'])&&$_SERVER['HTTP_X_REQUESTED_WITH']=='XMLHttpRequest'){
+            define('IS_AJAX',true);
+       }else{
+            define('IS_AJAX',false);
+       }
+9.公共文件的建立
+     一般情况下网站的前台和后台公用一个框架，此时他们有很多相同的配置，如连接同一个数据库，和需要共同使用的函数等等，
+     这样就需要一个文件夹来存放这些东西，Common 我们通过在框架核心文件处设置他们的路径常量，最后要通过程序循环创建，
+         //设置公共目录，前后台公用
+         define('COMMON_PATH',ROOT_PATH.'/Common');
+         //公共配置项
+         define('COMMON_CONFIG_PATH',COMMON_PATH.'/Config');
+         //公共模型
+         define('COMMON_MODEL_PATH',COMMON_PATH.'/Model');
+         //公共库文件夹啊
+         define('COMMON_LIB_PATH',COMMON_PATH.'/Lib');
+10.公共配置项的引入
+       Common/Config/config.php
+       在执行应用类初始化框架时，分别依次引入 系统配置，公共配置和个人配置；
+       同样的，在引入公共配置的时候，需要先判断该配置文件是否存在，存在直接引入，不存在则创建
+       //公共配置项
+               $commonPath=COMMON_CONFIG_PATH.'/Config.php';
+               $commonConfig=<<<EOF
+       <?php
+         return array(
+          // 配置项=>配置值
+
+         );
+       ?>
+       EOF;
+               if(! is_file($commonPath)){
+                   file_put_contents($commonPath,$commonConfig);
+               }
+               C(include $commonPath);
+11.公共函数，类的引入
+     Common/Lib/
+     引入方法，将需要引入的文件名写在配置文件中：'AUTO_LOAD_FILE'=>array('fun1.php','fun2.php'),
+     在执行应用类初始化框架时，通过循环该数组引入每个文件
+      private static  function _user_import()
+         {
+              $fileArr=C('AUTO_LOAD_FILE');
+              if(!empty($fileArr) && is_array($fileArr)){
+                  foreach($fileArr as $value){
+                      require_once COMMON_LIB_PATH.'/'.$value;
+                  }
+              }
+         }
+12.框架第三方类与工具的定义
+      在框架目录下：
+      --Yangzie
+            --Yangzie.php
+            --Config
+              --config.php
+            --Data
+              --Tpl
+            --Extends    框架扩展文件夹
+              --Org
+              --Tool
+13.自动载入框架第三方类
+      重新改写自动载入方法
+          private static function _autoload($classname)
+          {
+              switch(true){
+                  case strlen($classname)>10 && substr($classname,-10)=='Controller':
+                      $path=APP_CONTROLLER_PATH.'/'.$classname.'.class.php';
+                      if(! is_file($path))  halt($path.'控制器未找到');
+                      include $path;
+                      break;
+                  default:
+                      $path=TOOL_PATH.'/'.$classname.'.class.php';
+                      if(! is_file($path))  halt($path.'类未找到');
+                      include $path;
+                      break;
+              }
+14.EmptyController的定义使用
+     当用户访问一个不存在的类时，应该给一个默认的控制器的默认方法
+     实现方式：
+            在自动载入类时做出判断，如果这个类在对应的文件夹中没有找到对应的文件，则看用户是否定义了
+            EmptyController.class.php，如果有，则载入，没有，则报错，halt()
+            载入成功以后，在执行类对应的方法的时候，判断类是否存在，存在则实例化，不存在，则实例化
+                private static function _app_run()
+                {
+                    $c = isset($_GET[C("VAR_CONTROLLER")])?$_GET[C("VAR_CONTROLLER")]:'Index';
+                    $a = isset($_GET[C("VAR_ACTION")])?$_GET[C("VAR_ACTION")]:'index';
+                    define('CONTROLLER',$c);
+                    define('ACTION',$a);
+                    $c.='Controller';
+                    if(class_exists($c)){
+                        $obj=new $c();
+                        $obj->$a();
+                    }else{
+                        $obj=new EmptyController();
+                        $obj->index();
+                    }
+                }
+     问题：
+15. 当用户访问一个不存在的方法的时候
+       private static function _app_run()
+        {
+            $c = isset($_GET[C("VAR_CONTROLLER")])?$_GET[C("VAR_CONTROLLER")]:'Index';
+            $a = isset($_GET[C("VAR_ACTION")])?$_GET[C("VAR_ACTION")]:'index';
+            define('CONTROLLER',$c);
+            define('ACTION',$a);
+            $c.='Controller';
+            if(class_exists($c)){
+                $obj=new $c();
+                if(!method_exists($obj,$a)){
+                    if(method_exists($obj,'__empty')){
+                        $obj->__empty();
+                    }else{
+                        halt($c.'控制器中不存在'.$a.'方法');
+                    }
+                }else{
+                    $obj->$a();
+                }
+            }else{
+                $obj=new EmptyController();
+                $obj->index();
+            }
+        }
+16.接管系统的错误处理
+       建议在框架初始化完成后：
+        public static function run()
+           {
+               //框架初始化配置
+               self::_init();
+               //接管错误处理
+               set_error_handler(array(__CLASS__,'error'));
+               //引入用户自定义文件
+               self::_user_import();
+               //设置外部路径
+               self::_set_url();
+               //自动载入
+               spl_autoload_register(array(__CLASS__,'_autoload'));
+               //创建一个demo
+               self::_create_demo();
+               //运行控制器
+               self::_app_run();
+           }
+         //错误处理函数
+            public  static function error($errno,$error,$file,$line)
+             {
+                 switch($errno){
+                     case E_STRICT:
+                     case E_USER_WARNING:
+                     case E_USER_NOTICE:
+                     default:
+                         if(DEBUG){
+                            // echo DATA_PATH.'/Tpl/notice.html';
+                             include DATA_PATH.'/Tpl/notice.html';
+                         }
+                     break;
+                 }
+             }
+17.接管致命错误
+            //接管错误处理
+            set_error_handler(array(__CLASS__,'error'));
+            //处理致命错误
+            register_shutdown_function(array(__CLASS__,'fatal_error'));
+
+            致命错误处理函数：
+             public static function fatal_error()
+                {
+                    if($e=error_get_last()){
+                       self::error($e['type'],$e['message'],$e['file'],$e['line']);
+                    }
+                }
+18.模型类之连接数据库
+       首先在配置文件中添加连接数据库所需要的配置
+           'DB_CHARSET'=>'utf8',
+           'DB_HOST'=>'127.0.0.1',
+           'DB_PORT'=>'3306',
+           'DB_USER'=>'',
+           'DB_PASSWORD'=>'',
+           'DB_DATABASE'=>'',
+           'DB_PREFIX'=>'',
+       在框架的扩展工具里 Extends/Tool 下新建Model.class.php
+       class Model
+       {
+           private static $link=null;
+           public function __construct()
+           {
+               //连接数据库
+               $this->_connect();
+           }
+           private function _connect()
+           {
+               if(is_null(self::$link)){
+                   if(empty(C('DB_DATABASE'))) halt("请先配置数据库相关选项");
+                   $link=new mysqli(C('DB_HOST'),C('DB_USER'),C('DB_PASSWORD'),C('DB_DATABASE'),C('DB_PORT'));
+                   if($link->connect_error) halt("数据库连接错误，请检查相关配置项");
+                   $link->set_charset(C('DB_CHARSET'));
+                   self::$link=$link;
+               }
+           }
+       }
+19.定义模型所需的属性和方法
+        属性：
+         //保存连接信息
+            public static $link=null;
+            //保存表名
+            protected $table=null;
+            //初始化表信息
+            private $opt;
+            //记录发送的sql
+            public static $sqls=array();
+         方法：
+          private function _opt()
+             {
+                 $this->opt=array(
+                     'field'=>'*',
+                     'where'=>'',
+                     'group'=>'',
+                     'having'=>'',
+                     'order'=>'',
+                     'limit'=>''
+                 );
+             }
+20.query() 方法实现
+            public function query($sql)
+            {
+                self::$sqls[]=$sql;
+                $link=self::$link;
+                $result=$link->query($sql);
+                if($link->errno) halt('mysql错误:'.$link->error.'<br>SQL:'.$sql);
+                $rows=array();
+                while($row=$result->fetch_assoc()){
+                      $rows[]=$row;
+                }
+                //初始化
+                $this->_opt();
+                return $rows;
+            }
+21.all() 方法实现与M()函数实现
+         all()方法
+          public function all()
+             {
+                 $sql="SELECT ".$this->opt['field']." FROM ".$this->table.$this->opt['where'].$this->opt['group'].$this->opt['having'].$this->opt['order'].$this->opt['limit'];
+                 self::$sqls[]=$sql;
+                 return $this->query($sql);
+             }
+          M() 函数
+          function M($table)
+          {
+              $obj=new Model($table);
+              return $obj;
+          }
+22.链式调用
+              public function field($field)
+              {
+                  $this->opt['field']=$field;
+                  return $this;
+              }
+
+              public function where($where)
+              {
+                  $this->opt['where']=" WHERE ". $where;
+                  return $this;
+              }
+
+              public function order($order)
+              {
+                  $this->opt['order']=" ORDER BY  ". $order;
+                  return $this;
+              }
+
+              public function  limit($limit)
+              {
+                  $this->opt['limit']=" LIMIT ". $limit;
+                  return $this;
+              }
+23. find 方法实现
+        仅仅查出一条数据
+          public function find()
+            {
+                $data=$this->limit(1)->all();
+                $data=current($data);
+                return $data;
+            }
+            //给find的一个别名
+            public function one()
+            {
+                return $this->find();
+            }
+24.exe()方法
+        用来执行非查询语句
+        即是查询sql语句用query()方法，插入，修改，删除用exe方法
+        public function exe($sql)
+            {
+                self::$sqls[]=$sql;
+                $link=self::$link;
+                $bool=$link->query($sql);
+                $this->_opt();
+                if(is_object($bool)){
+                    halt("请使用query()方法");
+                }
+                if($bool){
+                    return isset($link->insert_id)?$link->insert_id:$link->affected_rows;
+                }else{
+                    halt('mysql错误：'.$link->error.'<br/>.SQL:'.$sql);
+                }
+            }
+25.delete() 删除方法
+        //不要删除全部数据
+            public function delete()
+            {
+                if(empty($this->opt['where'])){
+                    halt('删除语句必须要where条件');
+                }
+                $sql="DELETE FROM ".$this->table.$this->opt['where'];
+                return $this->exe($sql);
+            }
+26.字符串安全处理
+          private function _safe_str($str)
+          {
+              if(get_magic_quotes_gpc()){
+                  $str=stripcslashes($str);
+              }
+              return self::$link->real_escape_string($str);
+          }
+27.添加方法 add()
+              public function add($data)
+              {
+                  if(empty($data)){
+                      $data=$_POST;
+                  }
+                  $fields='';
+                  $values='';
+                  foreach ($data as $f => $va) {
+                      $fields.='`'.$this->_safe_str($f).'`,';
+                      $values.="'".$this->_safe_str($va)."',";
+                  }
+                  $fields=trim($fields,',');
+                  $values=trim($values,',');
+                  $sql="INSERT INTO ".$this->table." (".$fields.')'.' VALUES ('.$values.')';
+                  return $this->exe($sql);
+              }
+28.修改方法
+              public function update($data=NULL)
+              {
+                  if(empty($this->opt['where']))  halt('删除语句必须有where条件');
+                  if(empty($data)) $data=$_POST;
+                  $values='';
+                  foreach($data as $item => $va){
+                      $values.="`".$this->_safe_str($item)."`='".$this->_safe_str($va)."',";
+                  }
+                  $values=trim($values,',');
+
+                  $sql="UPDATE ".$this->table." SET".$values.$this->opt['where'];
+                 // p($sql);
+                  return $this->exe($sql);
+              }
+29.扩展模型
+       在Common/Model添加新的自定义模型类(InfoModel.class.php)
+       继承Model
+       class InfoModel extends Model
+       {
+           public $table='demo';
+           public function get_all()
+           {
+                return $this->all();
+           }
+       }
+       在自动加载文件中加载
+        //模型类
+           case strlen($classname)>5 && substr($classname,-5)=='Model':
+                $path=COMMON_MODEL_PATH.'/'.$classname.'.class.php';
+                include $path;
+               break;
+        添加K()函数
+        function K($model)
+        {
+            $model.='Model';
+            return new $model();
+        }
+        调用：
+        <?php
+          class IndexController extends Controller
+          {
+              public function index()
+              {
+                 $mo=K('Info');
+                  p($mo->get_all());
+              }
+          }
+        ?>
+30.载入smarty,建立桥梁
+        将下载的smarty放在框架下的Extends/Org/Smarty目录下，重命名smarty的libs文件夹为Smarty
+        在框架下的Libs/Core文件夹下新建SmartyView.class.php，用来配置smarty,需要同时载入
+        class SmartyView
+        {
+            public function __construct()
+            {
+               $smarty= new Smarty();
+                var_dump($smarty);
+            }
+        }
+        载入：
+           private static function _import_file(){
+                $file_arr=array(
+                    CORE_PATH.'/Log.class.php',
+                    FUNCTION_PATH.'/function.php',
+                    ORG_PATH.'/Smarty/Smarty.class.php',
+                    CORE_PATH.'/SmartyView.class.php',
+                    CORE_PATH.'/Controller.class.php',
+                    CORE_PATH.'/Application.class.php',
+
+                );
+                $str='';
+                foreach($file_arr as $value){
+                    $str.=trim(substr(file_get_contents($value),5,-2));
+                    require_once $value;
+                }
+                 $str="<?php\r\n".$str;
+                //file_put_contents(TEMP_PATH.'/~boot.php',$str) || die("权限不允许");
+            }
+        }
+        然后所有的用户自定义控制器所必须继承的那个父控制器，必须继承SmartyView.class.php
+        class Controller extends SmartyView
+31. 配置smarty
+    class SmartyView
+    {
+        private static $smarty=null;
+        public function __construct()
+        {
+            if( ! is_null(self::$smarty))  return;
+            $smarty= new Smarty();
+            $smarty->left_delimiter=C('LEFT_DELIMITER');
+            $smarty->right_delimiter=C('RIGHT_DELIMITER');
+            $smarty->template_dir=APP_TPL_PATH.'/'.CONTROLLER.'/';
+            $smarty->compile_dir=APP_COMPILE_PATH;
+            $smarty->cache_dir=APP_CACHE_PATH;
+            $smarty->caching=C('CACHE_ON');
+            $smarty->cache_lifetime=C("CACHE_TIME");
+            self::$smarty=$smarty;
+        }
+    }
+32.smarty  disply()方法
+        由于我们自己同样定义了display方法，此时，新增一个配置项，是否开启smarty，如果开启，则使用smarty的
+        display()方法，没有则使用我们自己的display()方法；
+        修改SmartyView.class.php
+         protected function display($tpl)
+            {
+                self::$smarty->display($tpl,$_SERVER['REQUEST_URI']);
+            }
+        修改Controller.class.php
+        1.
+            public function __construct()
+            {
+                if(C("SMARTY_ON")){
+                    parent::__construct();
+                }
+                if(method_exists($this,'_init')){
+                    $this->_init();
+                }
+            }
+        2.
+            protected function get_tpl($tpl=null)
+            {
+                if(is_null($tpl)){
+                    $path=APP_TPL_PATH.'/'.CONTROLLER.'/'.ACTION.'.html';
+                }else{
+                    $suffix=strrchr($tpl,'.');
+                    $tpl=empty($suffix)?$tpl.'.html':$tpl;
+                    $path=APP_TPL_PATH.'/'.CONTROLLER.'/'.$tpl;
+                }
+
+                return $path;
+            }
+
+            protected function display($tpl=null)
+            {
+                $path=$this->get_tpl($tpl);
+                if(! is_file($path)){
+                    halt($path."模板文件不存在");
+                }
+                if(C("SMARTY_ON")){
+                    parent::display($path);
+                }else{
+                    extract($this->var);
+                    include $path;
+                }
+            }
+
+33.smarty  assign()方法
+        修改SmartyView.class.php
+         protected function assign($var,$value)
+            {
+                self::$smarty->assign($var,$value);
+            }
+
+         修改Controller.class.php
+            protected function assign($var,$value)
+             {
+                 if(C("SMARTY_ON")){
+                     parent::assign($var,$value);
+                 }else{
+                     $this->var[$var]=$value;
+                 }
+             }
+34. smarty 缓存
+         protected function is_cached($tpl=null)
+            {
+                if(C("SMARTY_ON")) halt("请先开启smarty");
+                $tpl=$this-get_tpl($tpl);
+                return self::$smarty->is_cached($tpl,$_SERVER['REQUEST_URI']);
+            }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

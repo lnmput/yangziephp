@@ -1,0 +1,43 @@
+<!doctype html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title><?php echo $msg ?></title>
+	<style>
+		.info{
+			width:500px;
+			height:200px;
+			position:relative;
+			margin:0 auto;
+			top:100px;
+			border:1px solid #CCC;
+			border-radius:10px;
+			text-align:center;
+		}
+		.info h1{
+
+		}
+	</style>
+</head>
+<body>
+<div class="info">
+	<h1><?php echo $msg ?></h1>
+	<p>还有<span id="sec"><?php echo $time ?></span>秒返回上一页</p>
+	<a href="javascript:<?php echo $url ?>;">点此直接返回</a>
+</div>
+<script>
+	function goto(){
+		var num=document.getElementById("sec").innerHTML;
+		if(num>0){
+			num--
+			document.getElementById("sec").innerHTML=num;
+		}else{
+
+		<?php echo $url ?>;
+			clearInterval(s);
+		}
+	}
+	var s=setInterval("goto()",1000);
+</script>
+</body>
+</html>

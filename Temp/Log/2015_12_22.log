@@ -1,0 +1,4 @@
+[time]:2015-12-22 17:12:47ERROR:D:/WWW/myhd/Index/Tpl/Index/index.html模板文件不存在
+[time]:2015-12-22 17:12:47ERROR:Uncaught  --> Smarty: Unable to load template file 'D:/WWW/myhd/Index/Tpl/Index/index.html' <-- 
+  thrownD:\WWW\myhd\Yangzie\Extends\Org\Smarty\sysplugins\smarty_internal_templatebase.php第127行
+[time]:2015-12-22 17:12:53ERROR:Call to undefined method SmartyView::display()D:\WWW\myhd\Yangzie\Lib\Core\Controller.class.php第58行

@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Halt</title>
+</head>
+<body>
+  <h1>错误）：</h1>
+  <p><?php echo $e['message'] ?></p>
+  <?php  if(DEBUG && is_file($e['file'])) {     ?>
+      <p>错误文件名：<?php echo $e['file']; ?></p>
+      <p>错误行号：<?php echo $e['line']; ?></p>
+      <p>错误class：<?php echo $e['class']; ?></p>
+      <p>错误function:<?php echo $e['function']; ?></p>
+      <p>详细信息：</p>
+      <p><?php echo  nl2br($e['trace']); ?></p>
+  <?php }  ?>
+
+</body>
+</html>
